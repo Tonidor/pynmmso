@@ -1,4 +1,5 @@
-from multiprocess import Process, Queue
+from multiprocess.context import Process
+from multiprocess.queues import Queue
 
 
 def multiprocessor_process(problem, task_queue, result_queue):

@@ -1,9 +1,9 @@
 import random
 import math
 import numpy as np
-import pynmmso.swarm as s
-from pynmmso.listeners import MultiListener
-from pynmmso.sequential_fitness_caller import SequentialFitnessCaller
+import pynmmso.pynmmso.swarm as s
+from pynmmso.pynmmso.listeners import MultiListener
+from pynmmso.pynmmso.sequential_fitness_caller import SequentialFitnessCaller
 
 
 class ModeResult:
@@ -29,6 +29,7 @@ class ModeResult:
         Fitness score of this mode.
 
     """
+
     def __init__(self, location, value):
         self.location = location
         self.value = value
@@ -70,6 +71,7 @@ class Nmmso:
         The currently active swarms.
 
     """
+
     def __init__(self, problem, swarm_size=-1, max_evol=100, tol_val=1e-06,
                  fitness_caller=SequentialFitnessCaller()):
 
@@ -97,6 +99,7 @@ class Nmmso:
         self.converged_modes = 0
         self.next_swarm_id = 1
         self.evaluations = 0
+        self.initial_locations = None
 
         self.swarms = set()
         self.total_mid_evals = 0
@@ -128,7 +131,7 @@ class Nmmso:
         self.listener.add_listener(listener)
         listener.set_nmmso(self)
 
-    def run(self, max_evaluations):
+    def run(self, max_evaluations, initial_locations=None):
         """
         Runs is the optimisation algorithm until the specified number of fitness
         evaluations has been exceeded.
@@ -140,9 +143,10 @@ class Nmmso:
         ----------
 
         max_evaluations : int
-            The maximum number of fitness evaluations.  The aglorithm may execute
+            The maximum number of fitness evaluations.  The algorithm may execute
             more evaluations that this number but will stop at the end of the
             iteration when this limit is exceeded.
+        initial_locations: np.ndarray | None
 
         Returns
         -------
@@ -151,6 +155,7 @@ class Nmmso:
             All the modes found by the algorithm.
 
         """
+        self.initial_locations = initial_locations
         while self.evaluations < max_evaluations:
             self.iterate()
 
@@ -191,12 +196,22 @@ class Nmmso:
             self.listener.iteration_started()
 
         if self.evaluations == 0:
-            swarm = self._new_swarm()
-            swarm.set_initial_location()
-            swarm.evaluate_first()
-            self._add_swarm(swarm)
-            if self.listener is not None:
-                self.listener.swarm_created_at_random(swarm)
+            if self.initial_locations is None:
+                swarm = self._new_swarm()
+                swarm.set_initial_location()
+                swarm.evaluate_first()
+                self._add_swarm(swarm)
+                if self.listener is not None:
+                    self.listener.swarm_created_at_random(swarm)
+            else:
+                for location in self.initial_locations:
+                    swarm = self._new_swarm()
+                    swarm.set_initial_location(location)
+                    swarm.evaluate_first()
+                    self._add_swarm(swarm)
+                    if self.listener is not None:
+                        self.listener.swarm_created_at_random(swarm)
+
             self.evaluations = 0
             num_of_evol_modes = 0
             num_rand_modes = 1
@@ -367,7 +382,7 @@ class Nmmso:
     @staticmethod
     def _distance_to(location1, location2):
         """Euclidean distance between two locations"""
-        return np.linalg.norm(location1-location2)
+        return np.linalg.norm(location1 - location2)
 
     @staticmethod
     def _create_swarm_tuple(swarm1, swarm2):

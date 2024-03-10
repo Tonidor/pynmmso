@@ -1,6 +1,6 @@
 import random
 import numpy as np
-import pynmmso as nmmso
+from pynmmso import pynmmso as nmmso
 
 
 class Swarm:
@@ -78,10 +78,13 @@ class Swarm:
         self.shifted_loc = None  # Will be populated later on
         self.dist = None  # Will be populated later on
 
-    def set_initial_location(self):
+    def set_initial_location(self, location=None):
         """Sets the initial location of a swarm."""
         self.changed = True
-        self.new_location = (np.random.rand(self.num_dimensions) * (self.mx-self.mn)) + self.mn
+        if location is None:
+            self.new_location = (np.random.rand(self.num_dimensions) * (self.mx-self.mn)) + self.mn
+        else:
+            self.new_location = location
         # random initial velocities of swarm
         self.velocities[0, :] = (np.random.rand(self.num_dimensions) * (self.mx-self.mn)) + self.mn
 
