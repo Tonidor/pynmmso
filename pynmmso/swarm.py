@@ -43,6 +43,7 @@ class Swarm:
         The fitness value associated with the best location for each particle in the swarm.
 
     """
+
     def __init__(self, id, swarm_size, problem, listener=None):
         self.id = id
         self.swarm_size = swarm_size
@@ -57,8 +58,8 @@ class Swarm:
         self.num_dimensions = len(self.mn)
 
         self.mode_location = None  # Will be populated later on
-        self.new_location = None   # Will be populated later on
-        self.mode_value = None     # Will be populated later on
+        self.new_location = None  # Will be populated later on
+        self.mode_value = None  # Will be populated later on
 
         # Initialize locations for swarm elements
 
@@ -82,15 +83,15 @@ class Swarm:
         """Sets the initial location of a swarm."""
         self.changed = True
         if location is None:
-            self.new_location = (np.random.rand(self.num_dimensions) * (self.mx-self.mn)) + self.mn
+            self.new_location = (np.random.rand(self.num_dimensions) * (self.mx - self.mn)) + self.mn
         else:
             self.new_location = location
         # random initial velocities of swarm
-        self.velocities[0, :] = (np.random.rand(self.num_dimensions) * (self.mx-self.mn)) + self.mn
+        self.velocities[0, :] = (np.random.rand(self.num_dimensions) * (self.mx - self.mn)) + self.mn
 
     def set_arbitrary_distance(self):
         """Set an arbitrary distance - this is done when we only have one swarm"""
-        self.dist = np.min(self.mx-self.mn)
+        self.dist = np.min(self.mx - self.mn)
 
     def increment(self):
         """ Increments the swarm. """
@@ -101,14 +102,14 @@ class Swarm:
         omega = 0.1
         reject = 0
 
-        r = random.randrange(self.swarm_size)   # select particle at random to move
+        r = random.randrange(self.swarm_size)  # select particle at random to move
 
         while np.sum(new_location < self.mn) > 0 or np.sum(new_location > self.mx) > 0:
 
             # if swarm is not yet at capacity, simply add a new particle
             if self.number_of_particles < self.swarm_size:
                 usp = nmmso.Nmmso.uniform_sphere_points(1, self.num_dimensions)[0]
-                new_location = self.mode_location + usp * (d/2)
+                new_location = self.mode_location + usp * (d / 2)
             else:
                 # move an existing particle
                 shifted = True
@@ -159,7 +160,7 @@ class Swarm:
                     nmmso.Nmmso.uniform_sphere_points(1, self.num_dimensions)[0] * (d / 2)
                 reject = reject + 1
                 if reject > 20:  # resolve if keep rejecting
-                    temp_vel = np.random.rand(self.num_dimensions)*(self.mx-self.mn) + self.mn
+                    temp_vel = np.random.rand(self.num_dimensions) * (self.mx - self.mn) + self.mn
 
             self.velocities[self.shifted_loc, :] = temp_vel
 
@@ -195,7 +196,7 @@ class Swarm:
         float
             The distance between the two swarms.
         """
-        return np.linalg.norm(self.mode_location-swarm.mode_location)
+        return np.linalg.norm(self.mode_location - swarm.mode_location)
 
     def merge(self, swarm):
         """
@@ -214,12 +215,33 @@ class Swarm:
         if n1 + n2 < self.swarm_size:
             # simplest solution, where the combined active members of both populations
             # are below the total size they can grow to
+
+            # Edit: assert that the mode location and value is part of the history and the current particles
+            # print(swarm.mode_location)
+            # print(swarm.pbest_locations)
+            # print(np.where(swarm.pbest_locations == swarm.mode_location))
+            # mode_idx = np.where(swarm.pbest_locations == swarm.mode_location)[0][0]
+            # mode_location = swarm.mode_location
+            # mode_value = swarm.mode_value
+
+            h_locations = swarm.history_locations[0:n2, :]
+            h_values = swarm.history_values[0:n2]
+            p_locations = swarm.pbest_locations[0:n2, :]
+            p_values = swarm.pbest_values[0:n2]
+            velocities = swarm.velocities[0:n2, :]
+            # if mode_idx >= n2:
+            #     h_locations[n2 - 1] = mode_location
+            #     h_values[n2 - 1] = mode_value
+            #     p_locations[n2 - 1] = mode_location
+            #     p_values[n2 - 1] = mode_value
+            #     velocities[n2 - 1] = swarm.velocities[mode_idx]
+
             self.number_of_particles = n1 + n2
-            self.history_locations[n1:n1 + n2, :] = swarm.history_locations[0:n2, :]
-            self.history_values[n1:n1 + n2] = swarm.history_values[0:n2]
-            self.pbest_locations[n1:n1 + n2, :] = swarm.pbest_locations[0:n2, :]
-            self.pbest_values[n1:n1 + n2] = swarm.pbest_values[0:n2]
-            self.velocities[n1:n1 + n2, :] = swarm.velocities[0:n2, :]
+            self.history_locations[n1:n1 + n2, :] = h_locations
+            self.history_values[n1:n1 + n2] = h_values
+            self.pbest_locations[n1:n1 + n2, :] = p_locations
+            self.pbest_values[n1:n1 + n2] = p_values
+            self.velocities[n1:n1 + n2, :] = velocities
         else:
             # select best out of combines population, based on current location (rather than pbest)
             self.number_of_particles = self.swarm_size
@@ -231,7 +253,6 @@ class Swarm:
                 np.concatenate((self.pbest_locations[0:n1, :], swarm.pbest_locations[0:n2, :]))
             temp_p_v = np.concatenate((self.pbest_values[0:n1], swarm.pbest_values[0:n2]))
             temp_vel = np.concatenate((self.velocities[0:n1, :], swarm.velocities[0:n2, :]))
-
 
             # get the indices of highest values
             I = np.argsort(temp_h_v)[len(temp_h_v) - self.swarm_size:]
@@ -254,7 +275,7 @@ class Swarm:
             reject += 1
 
             if reject > 20:
-                temp_vel = (np.random.rand(self.num_dimensions) * (self.mx-self.mn)) + self.mn
+                temp_vel = (np.random.rand(self.num_dimensions) * (self.mx - self.mn)) + self.mn
 
         self.velocities[0, :] = temp_vel
 
