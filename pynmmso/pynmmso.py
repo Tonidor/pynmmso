@@ -1,4 +1,3 @@
-import random
 import math
 import numpy as np
 import pynmmso.pynmmso.swarm as s
@@ -73,7 +72,8 @@ class Nmmso:
     """
 
     def __init__(self, problem, swarm_size=-1, max_evol=100, tol_val=1e-06,
-                 fitness_caller=SequentialFitnessCaller()):
+                 fitness_caller=SequentialFitnessCaller(), seed: int = 0):
+        self.random_state = np.random.RandomState(seed=seed)
 
         self.problem = problem
         self.max_evol = max_evol if max_evol > 0 else 100
@@ -217,7 +217,7 @@ class Nmmso:
             num_rand_modes = 1
         else:
             # create speculative new swarm, either at random in design space, or via crossover
-            if random.random() < 0.5 or \
+            if self.random_state.random() < 0.5 or \
                     len(self.swarms) == 1 or len(self.max) == 1 or self.max_evol == 1:
                 num_of_evol_modes = 0
                 num_rand_modes = self._random_new()  # this currently *always* returns 1
@@ -244,13 +244,14 @@ class Nmmso:
         # if we have more than max_evol, then only increment a subset
         limit = min(self.max_evol, len(self.swarms))
         if len(self.swarms) > self.max_evol:
-            if np.random.random() < 0.5:
+            if self.random_state.random() < 0.5:
                 # select the fittest
                 swarms_to_increment = \
                     sorted(self.swarms, key=lambda x: x.mode_value, reverse=True)[0:limit]
             else:
                 # select at random
-                swarms_to_increment = random.sample(self.swarms, limit)
+                swarms_to_increment = list(self.random_state.choice(list(self.swarms), limit, replace=False))
+                # swarms_to_increment = random.sample(self.swarms, limit)
 
         else:
             # use all swarms when incrementing
@@ -420,13 +421,14 @@ class Nmmso:
         """Evolves a new swarm by crossing over two existing swarms."""
         candidate_swarms = self.swarms
 
-        if len(candidate_swarms) > self.max_evol and random.random() < 0.5:
+        if len(candidate_swarms) > self.max_evol and self.random_state.random() < 0.5:
             # if have a lot of swarms occasionally reduce the candidate set to be the fittest ones
             candidate_swarms = \
                 sorted(candidate_swarms, key=lambda x: x.mode_value, reverse=True)[:self.max_evol]
 
         # select two at random from the candidate swarms
-        swarms_to_cross = random.sample(candidate_swarms, 2)
+        swarms_to_cross = list(self.random_state.choice(list(candidate_swarms), 2, replace=False))
+        # swarms_to_cross = random.sample(candidate_swarms, 2)
 
         swarm = self._new_swarm()
         swarm.initialise_with_uniform_crossover(swarms_to_cross[0], swarms_to_cross[1])
@@ -452,16 +454,19 @@ class Nmmso:
 
         # first identify those swarms who are at capacity, and therefore may be
         # considered for splitting off a member
-        candidates = random.sample(self.swarms, limit)
+        candidates = list(self.random_state.choice(list(self.swarms), limit, replace=False))
+        # candidates = random.sample(self.swarms, limit)
 
         candidates = {x for x in candidates if x.number_of_particles >= self.swarm_size}
 
         if candidates:
             # select swarm at random
-            [swarm] = random.sample(candidates, 1)
+            [swarm] = list(self.random_state.choice(list(candidates), 1, replace=False))
+            # [swarm] = random.sample(candidates, 1)
 
             # select an active swarm member at random (i.e. particle)
-            k = random.randrange(swarm.swarm_size)
+            k = self.random_state.randint(swarm.swarm_size)
+            # k = random.randrange(swarm.swarm_size)
 
             particle_location = np.copy(swarm.history_locations[k, :])
             particle_value = swarm.history_values[k]
@@ -508,12 +513,12 @@ class Nmmso:
                     reject = 0
                     while np.any(temp_vel < self.min) or np.any(temp_vel > self.max):
                         temp_vel = swarm.mode_location + \
-                                   Nmmso.uniform_sphere_points(1, self.num_dimensions)[0] * (d / 2)
+                                   Nmmso.uniform_sphere_points(1, self.num_dimensions, self.random_state)[0] * (d / 2)
 
                         reject += 1
                         if reject > 20:
                             temp_vel = \
-                                np.random.random(self.num_dimensions) * (self.max - self.min) + \
+                                self.random_state.random(self.num_dimensions) * (self.max - self.min) + \
                                 self.min
 
                     swarm.velocities[k, :] = temp_vel
@@ -531,7 +536,7 @@ class Nmmso:
     def _random_new(self):
         number_rand_modes = 1
 
-        x = np.random.random_sample(np.shape(self.max)) * (self.max - self.min) + self.min
+        x = self.random_state.random_sample(np.shape(self.max)) * (self.max - self.min) + self.min
 
         new_swarm = self._new_swarm()
         new_swarm.changed = True
@@ -546,7 +551,7 @@ class Nmmso:
         return number_rand_modes
 
     @staticmethod
-    def uniform_sphere_points(n, d):
+    def uniform_sphere_points(n, d, random_state: np.random.RandomState = None):
         """
         Constructs uniform sphere points.
 
@@ -561,6 +566,9 @@ class Nmmso:
         d : int
             The number of dimensions of each point.
 
+        random_state : np.random.RandomState = None
+            The random seed to use
+
         Returns:
         numpy array
             2D array of uniform sphere points.
@@ -569,7 +577,10 @@ class Nmmso:
 
         import operator
 
-        z = np.random.normal(size=(n, d))
+        if random_state is None:
+            random_state = np.random.RandomState()
+
+        z = random_state.normal(size=(n, d))
 
         # keepdims arg seems important; matlab explicitly seems to do this
         r1 = np.sqrt(np.sum(pow(z, 2), 1, keepdims=True))
@@ -577,7 +588,7 @@ class Nmmso:
         # using the function to make clear that it's element wise division
         # (/ symbol sometimes used for mrdivide)
         x = np.divide(z, reps)
-        r = pow(np.random.rand(n, 1), (operator.truediv(1, d)))
+        r = pow(random_state.rand(n, 1), (operator.truediv(1, d)))
         res = np.multiply(x, np.tile(r, (1, d)))  # np.multiply is element-wise
         return res
 
@@ -586,4 +597,4 @@ class Nmmso:
         self.next_swarm_id += 1
 
     def _new_swarm(self):
-        return s.Swarm(self.next_swarm_id, self.swarm_size, self.problem, self.listener)
+        return s.Swarm(self.next_swarm_id, self.swarm_size, self.problem, self.random_state, self.listener)

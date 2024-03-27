@@ -1,4 +1,3 @@
-import random
 import numpy as np
 from pynmmso import pynmmso as nmmso
 
@@ -16,6 +15,8 @@ class Swarm:
         Maximum number of particles in the swarm
     problem :
         Instance of the problem class. Must implement get_bounds and fitness functions.
+    random_state : np.random.RandomState
+        Random state
     listener : subclass of nmmso.listeners.BaseListener
             Listener object to receive notification of events. Optional.
 
@@ -44,10 +45,11 @@ class Swarm:
 
     """
 
-    def __init__(self, id, swarm_size, problem, listener=None):
+    def __init__(self, id, swarm_size, problem, random_state, listener=None):
         self.id = id
         self.swarm_size = swarm_size
         self.problem = problem
+        self.random_state = random_state
         self.listener = listener
 
         self.mn = np.array(problem.get_bounds()[0])
@@ -83,11 +85,11 @@ class Swarm:
         """Sets the initial location of a swarm."""
         self.changed = True
         if location is None:
-            self.new_location = (np.random.rand(self.num_dimensions) * (self.mx - self.mn)) + self.mn
+            self.new_location = (self.random_state.rand(self.num_dimensions) * (self.mx - self.mn)) + self.mn
         else:
             self.new_location = location
         # random initial velocities of swarm
-        self.velocities[0, :] = (np.random.rand(self.num_dimensions) * (self.mx - self.mn)) + self.mn
+        self.velocities[0, :] = (self.random_state.rand(self.num_dimensions) * (self.mx - self.mn)) + self.mn
 
     def set_arbitrary_distance(self):
         """Set an arbitrary distance - this is done when we only have one swarm"""
@@ -102,20 +104,20 @@ class Swarm:
         omega = 0.1
         reject = 0
 
-        r = random.randrange(self.swarm_size)  # select particle at random to move
+        r = self.random_state.randint(self.swarm_size)  # select particle at random to move
 
         while np.sum(new_location < self.mn) > 0 or np.sum(new_location > self.mx) > 0:
 
             # if swarm is not yet at capacity, simply add a new particle
             if self.number_of_particles < self.swarm_size:
-                usp = nmmso.Nmmso.uniform_sphere_points(1, self.num_dimensions)[0]
+                usp = nmmso.Nmmso.uniform_sphere_points(1, self.num_dimensions, self.random_state)[0]
                 new_location = self.mode_location + usp * (d / 2)
             else:
                 # move an existing particle
                 shifted = True
                 self.shifted_loc = r
-                r1 = np.random.rand(self.num_dimensions)
-                r2 = np.random.rand(self.num_dimensions)
+                r1 = self.random_state.rand(self.num_dimensions)
+                r2 = self.random_state.rand(self.num_dimensions)
 
                 temp_vel = omega * self.velocities[self.shifted_loc, :] + \
                            2.0 * r1 * \
@@ -134,11 +136,11 @@ class Swarm:
                             self.history_locations[self.shifted_loc, :] + temp_vel < self.mn))
                     if i_max.size > 0:
                         temp_vel[i_max] = \
-                            np.random.rand(i_max.size) * \
+                            self.random_state.rand(i_max.size) * \
                             (self.mx[i_max] - self.history_locations[self.shifted_loc, i_max])
                     if i_min.size > 0:
                         temp_vel[i_min] = \
-                            np.random.rand(i_min.size) * \
+                            self.random_state.rand(i_min.size) * \
                             (self.history_locations[self.shifted_loc, i_min] - self.mn[i_min]) * -1
 
                 new_location = self.history_locations[self.shifted_loc, :] + temp_vel
@@ -157,10 +159,10 @@ class Swarm:
             while np.sum(temp_vel < self.mn) > 0 or np.sum(temp_vel > self.mx) > 0:
                 temp_vel = \
                     self.mode_location + \
-                    nmmso.Nmmso.uniform_sphere_points(1, self.num_dimensions)[0] * (d / 2)
+                    nmmso.Nmmso.uniform_sphere_points(1, self.num_dimensions, self.random_state)[0] * (d / 2)
                 reject = reject + 1
                 if reject > 20:  # resolve if keep rejecting
-                    temp_vel = np.random.rand(self.num_dimensions) * (self.mx - self.mn) + self.mn
+                    temp_vel = self.random_state.rand(self.num_dimensions) * (self.mx - self.mn) + self.mn
 
             self.velocities[self.shifted_loc, :] = temp_vel
 
@@ -182,7 +184,7 @@ class Swarm:
         swarm1 : Swarm
         swarm2 : Swarm
         """
-        self.new_location, _ = Swarm.uni(swarm1.mode_location, swarm2.mode_location)
+        self.new_location, _ = Swarm.uni(swarm1.mode_location, swarm2.mode_location, self.random_state)
         self.evaluate_first()
         self.changed = True
         self.converged = False
@@ -270,12 +272,12 @@ class Swarm:
         temp_vel = self.mn - 1
         while np.sum(temp_vel < self.mn) > 0 or np.sum(temp_vel > self.mx) > 0:
             temp_vel = self.mode_location + \
-                       nmmso.Nmmso.uniform_sphere_points(1, self.num_dimensions)[0] * \
+                       nmmso.Nmmso.uniform_sphere_points(1, self.num_dimensions, self.random_state)[0] * \
                        (self.dist / 2)
             reject += 1
 
             if reject > 20:
-                temp_vel = (np.random.rand(self.num_dimensions) * (self.mx - self.mn)) + self.mn
+                temp_vel = (self.random_state.rand(self.num_dimensions) * (self.mx - self.mn)) + self.mn
 
         self.velocities[0, :] = temp_vel
 
@@ -369,7 +371,7 @@ class Swarm:
         return best_swarm, self.dist
 
     @staticmethod
-    def uni(x1, x2):
+    def uni(x1, x2, random_state: np.random.RandomState = None):
         """
         Uniform binary crossover.
 
@@ -378,20 +380,23 @@ class Swarm:
 
         x1 : numpy array of parameters
         x2 : numpy array of parameters
+        random_state : np.random.RandomState = None
 
         Returns:
         numpy array
             New array of parameters formed from uniform crossover.
         """
+        if random_state is None:
+            random_state = np.random.RandomState()
 
         # simulated binary crossover
         x_c = x1.copy()
         x_d = x2.copy()
         l = len(x1)
-        r = np.flatnonzero(np.random.rand(l, 1) > 0.5)
+        r = np.flatnonzero(random_state.rand(l, 1) > 0.5)
         # ensure at least one is swapped
         if r.size == 0 or r.size == l:
-            r = np.random.randint(l)
+            r = random_state.randint(l)
 
         x_c[r] = x2[r]
         x_d[r] = x1[r]
