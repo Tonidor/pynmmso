@@ -217,10 +217,13 @@ class Nmmso:
             num_rand_modes = 1
         else:
             # create speculative new swarm, either at random in design space, or via crossover
-            if self.random_state.random() < 0.5 or \
-                    len(self.swarms) == 1 or len(self.max) == 1 or self.max_evol == 1:
+            if (self.random_state.random() < 0.5 or   # 50:50 random new /
+                    len(self.swarms) == 1 or  # only one swarm -> no crossover possible
+                    len(self.max) == 1 or  # or it is a one-dim. problem??
+                    self.max_evol == 1):  # if only one swarm should be updated per round, crossover not possible
                 num_of_evol_modes = 0
                 num_rand_modes = self._random_new()  # this currently *always* returns 1
+
             else:
                 num_rand_modes = 0
                 num_of_evol_modes = self._evolve()
@@ -230,7 +233,7 @@ class Nmmso:
 
         # See if modes should be merged together
         num_of_mid_evals = 0
-        while sum([mode.changed for mode in self.swarms]) > 0:
+        while sum([mode.changed for mode in self.swarms]) > 0:  # if fitness of any swarm has improved
             merge_evals = self._merge_swarms()
             num_of_mid_evals = num_of_mid_evals + merge_evals
 
@@ -320,9 +323,9 @@ class Nmmso:
             number_of_mid_evals = 0
 
             for swarm1, swarm2 in closest_swarms:
-                if swarm1.distance_to(swarm2) < self.tol_val:
+                if swarm1.distance_to(swarm2) < self.tol_val:  # merge threshold
                     # merge if sufficiently close
-                    to_merge.add((swarm1, swarm2, True))
+                    to_merge.add((swarm1, swarm2, True))  # if it has low fitness, it is still merged!
                 else:
                     # otherwise merge if midpoint is fitter
                     mid_loc = 0.5 * (swarm1.mode_location - swarm2.mode_location) + \
@@ -421,8 +424,9 @@ class Nmmso:
         """Evolves a new swarm by crossing over two existing swarms."""
         candidate_swarms = self.swarms
 
-        if len(candidate_swarms) > self.max_evol and self.random_state.random() < 0.5:
-            # if have a lot of swarms occasionally reduce the candidate set to be the fittest ones
+        if (len(candidate_swarms) > self.max_evol and  # if we have more than how many should be evolved
+            self.random_state.random() < 0.5):
+            # if we have a lot of swarms occasionally reduce the candidate set to be the fittest ones
             candidate_swarms = \
                 sorted(candidate_swarms, key=lambda x: x.mode_value, reverse=True)[:self.max_evol]
 
@@ -431,7 +435,7 @@ class Nmmso:
         # swarms_to_cross = random.sample(candidate_swarms, 2)
 
         swarm = self._new_swarm()
-        swarm.initialise_with_uniform_crossover(swarms_to_cross[0], swarms_to_cross[1])
+        swarm.initialise_with_uniform_crossover(swarms_to_cross[0], swarms_to_cross[1])  # reduce crossover probabiliy, currently 50:50 per param??
         self._add_swarm(swarm)
 
         if self.listener is not None:

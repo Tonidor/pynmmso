@@ -198,7 +198,7 @@ class Swarm:
         float
             The distance between the two swarms.
         """
-        return np.linalg.norm(self.mode_location - swarm.mode_location)
+        return np.linalg.norm(self.mode_location - swarm.mode_location)  # param dist
 
     def merge(self, swarm):
         """
