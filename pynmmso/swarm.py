@@ -382,7 +382,8 @@ class Swarm:
         x2 : numpy array of parameters
         random_state : np.random.RandomState = None
 
-        Returns:
+        Returns
+        -------
         numpy array
             New array of parameters formed from uniform crossover.
         """

@@ -101,7 +101,7 @@ class Nmmso:
         self.evaluations = 0
         self.initial_locations = None
 
-        self.swarms = set()
+        self.swarms = list()
         self.total_mid_evals = 0
         self.total_new_locations = 0
         self.total_evol_modes = 0
@@ -244,13 +244,13 @@ class Nmmso:
         # if we have more than max_evol, then only increment a subset
         limit = min(self.max_evol, len(self.swarms))
         if len(self.swarms) > self.max_evol:
-            if self.random_state.random() < 0.5:
+            rand_n = self.random_state.random()
+            if rand_n < 0.5:
                 # select the fittest
-                swarms_to_increment = \
-                    sorted(self.swarms, key=lambda x: x.mode_value, reverse=True)[0:limit]
+                swarms_to_increment = sorted(self.swarms, key=lambda x: x.mode_value, reverse=True)[0:limit]
             else:
                 # select at random
-                swarms_to_increment = list(self.random_state.choice(list(self.swarms), limit, replace=False))
+                swarms_to_increment = list(self.random_state.choice(self.swarms, limit, replace=False))
                 # swarms_to_increment = random.sample(self.swarms, limit)
 
         else:
@@ -303,7 +303,7 @@ class Nmmso:
 
         n = len(swarms_changed)
 
-        closest_swarms = set()
+        closest_swarms = list()
 
         number_of_mid_evals = 0
 
@@ -312,17 +312,17 @@ class Nmmso:
             for swarm in swarms_changed:
                 closest_swarm, _ = swarm.find_nearest(self.swarms)
                 tuple_of_swarms = Nmmso._create_swarm_tuple(swarm, closest_swarm)
-                closest_swarms.add(tuple_of_swarms)
+                closest_swarms.append(tuple_of_swarms)
                 if swarm.number_of_particles == 1:
                     swarm.initialise_new_swarm_velocities()
 
-            to_merge = set()
+            to_merge = list()
             number_of_mid_evals = 0
 
             for swarm1, swarm2 in closest_swarms:
                 if swarm1.distance_to(swarm2) < self.tol_val:
                     # merge if sufficiently close
-                    to_merge.add((swarm1, swarm2, True))
+                    to_merge.append((swarm1, swarm2, True))
                 else:
                     # otherwise merge if midpoint is fitter
                     mid_loc = 0.5 * (swarm1.mode_location - swarm2.mode_location) + \
@@ -338,9 +338,9 @@ class Nmmso:
 
                 if y > swarm2.mode_value:
                     swarm2.update_location_and_value(loc, y)
-                    to_merge.add((swarm1, swarm2, False))
+                    to_merge.append((swarm1, swarm2, False))
                 elif swarm1.mode_value <= y:
-                    to_merge.add((swarm1, swarm2, False))
+                    to_merge.append((swarm1, swarm2, False))
 
             # Merge the swarms - it is possible that we get one swarm involved in two merges.
             # In such situation depending on order we can get three combos:
@@ -454,10 +454,10 @@ class Nmmso:
 
         # first identify those swarms who are at capacity, and therefore may be
         # considered for splitting off a member
-        candidates = list(self.random_state.choice(list(self.swarms), limit, replace=False))
+        candidates = list(self.random_state.choice(self.swarms, limit, replace=False))
         # candidates = random.sample(self.swarms, limit)
 
-        candidates = {x for x in candidates if x.number_of_particles >= self.swarm_size}
+        candidates = [x for x in candidates if x.number_of_particles >= self.swarm_size]
 
         if candidates:
             # select swarm at random
@@ -528,7 +528,9 @@ class Nmmso:
 
                 elif mid_loc_val > swarm.mode_value:
                     swarm.update_location_and_value(mid_loc, mid_loc_val)
-
+                # else:
+                #     # todo: What should be done if the midpoint value is equal to the mode value?
+                #     swarm.update_location_and_value(mid_loc, mid_loc_val)
                 number_of_new_samples = 1
 
         return number_of_new_samples
@@ -593,7 +595,7 @@ class Nmmso:
         return res
 
     def _add_swarm(self, swarm):
-        self.swarms.add(swarm)
+        self.swarms.append(swarm)
         self.next_swarm_id += 1
 
     def _new_swarm(self):
