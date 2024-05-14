@@ -95,9 +95,14 @@ class Swarm:
         """Set an arbitrary distance - this is done when we only have one swarm"""
         self.dist = np.min(self.mx - self.mn)
 
-    def increment(self):
+    def increment(self, new_location=None):
         """ Increments the swarm. """
-        new_location = self.mn - 1
+        replace = False
+        if new_location is None:
+            new_location = self.mn - 1
+        else:
+            if self.number_of_particles == self.swarm_size:
+                replace = True
 
         d = self.dist
         shifted = False
@@ -151,8 +156,12 @@ class Swarm:
         else:
             # otherwise initialise velocity in sphere based on distance from gbest to next
             # closest mode
-            self.number_of_particles = self.number_of_particles + 1
-            self.shifted_loc = self.number_of_particles - 1
+            if replace:
+                self.shifted_loc = r
+            else:
+                self.number_of_particles = self.number_of_particles + 1
+                self.shifted_loc = self.number_of_particles - 1
+
             temp_vel = self.mn - 1
 
             reject = 0
@@ -293,6 +302,7 @@ class Swarm:
         value : float
             New fitness value at swarm location.
         """
+        # todo: the mode location and value might not be part of the particles
         previous_location = self.mode_location
         previous_value = self.mode_value
         self.mode_location = location

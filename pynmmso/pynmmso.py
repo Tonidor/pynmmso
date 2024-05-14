@@ -99,7 +99,7 @@ class Nmmso:
         self.converged_modes = 0
         self.next_swarm_id = 1
         self.evaluations = 0
-        self.initial_locations = None
+        self.initial_swarms = None
 
         self.swarms = list()
         self.total_mid_evals = 0
@@ -131,7 +131,7 @@ class Nmmso:
         self.listener.add_listener(listener)
         listener.set_nmmso(self)
 
-    def run(self, max_evaluations, initial_locations=None):
+    def run(self, max_evaluations, initial_swarms=None):
         """
         Runs is the optimisation algorithm until the specified number of fitness
         evaluations has been exceeded.
@@ -146,7 +146,7 @@ class Nmmso:
             The maximum number of fitness evaluations.  The algorithm may execute
             more evaluations that this number but will stop at the end of the
             iteration when this limit is exceeded.
-        initial_locations: np.ndarray | None
+        initial_swarms: List | None
 
         Returns
         -------
@@ -155,7 +155,7 @@ class Nmmso:
             All the modes found by the algorithm.
 
         """
-        self.initial_locations = initial_locations
+        self.initial_swarms = initial_swarms
         while self.evaluations < max_evaluations:
             self.iterate()
 
@@ -196,25 +196,46 @@ class Nmmso:
             self.listener.iteration_started()
 
         if self.evaluations == 0:
-            if self.initial_locations is None:
+            self.evaluations = 0
+            num_of_evol_modes = 0
+            num_rand_modes = 0
+
+            if self.initial_swarms is None:
                 swarm = self._new_swarm()
                 swarm.set_initial_location()
                 swarm.evaluate_first()
                 self._add_swarm(swarm)
                 if self.listener is not None:
                     self.listener.swarm_created_at_random(swarm)
+
+                self.evaluations += 1
+                num_rand_modes += 1
             else:
-                for location in self.initial_locations:
+                for particle_locations in self.initial_swarms:
+                    first_location = particle_locations[0]
                     swarm = self._new_swarm()
-                    swarm.set_initial_location(location)
+                    swarm.set_initial_location(first_location)
                     swarm.evaluate_first()
                     self._add_swarm(swarm)
                     if self.listener is not None:
                         self.listener.swarm_created_at_random(swarm)
 
-            self.evaluations = 0
-            num_of_evol_modes = 0
-            num_rand_modes = 1
+                    self.evaluations += 1
+
+                if len(self.swarms) == 1:
+                    [swarm] = self.swarms
+                    swarm.set_arbitrary_distance()
+                else:
+                    for swarm in self.swarms:
+                        _, _ = swarm.find_nearest(self.swarms)
+
+                for i_swarm, particle_locations in enumerate(self.initial_swarms):
+                    if len(particle_locations) > 1:
+                        for location in particle_locations[1:]:
+                            swarm = self.swarms[i_swarm]
+                            swarm.increment(new_location=location)
+                            self.evaluations += self._evaluate_new_locations([swarm])
+
         else:
             # create speculative new swarm, either at random in design space, or via crossover
             if self.random_state.random() < 0.5 or \
