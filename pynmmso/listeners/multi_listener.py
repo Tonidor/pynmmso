@@ -1,4 +1,4 @@
-from pynmmso.pynmmso.listeners.base_listener import BaseListener
+from pynmmso.listeners.base_listener import BaseListener
 
 
 class MultiListener(BaseListener):

@@ -1,5 +1,5 @@
 import numpy as np
-from pynmmso import pynmmso as nmmso
+import pynmmso as nmmso
 
 
 class Swarm:

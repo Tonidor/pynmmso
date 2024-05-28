@@ -1,8 +1,8 @@
 import math
 import numpy as np
-import pynmmso.pynmmso.swarm as s
-from pynmmso.pynmmso.listeners import MultiListener
-from pynmmso.pynmmso.sequential_fitness_caller import SequentialFitnessCaller
+import pynmmso.swarm as s
+from pynmmso.listeners import MultiListener
+from pynmmso.sequential_fitness_caller import SequentialFitnessCaller
 
 
 class ModeResult:
